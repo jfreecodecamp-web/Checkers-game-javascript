@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Checkers - Color Edition</title>
+    <style>
+        body {
+            background-color: #333;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: white;
+        }
+        #menu-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+        .menu-card {
+            background: #4a2e1a;
+            padding: 40px;
+            border-radius: 20px;
+            border: 4px solid #e3c16f;
+            text-align: center;
+            box-shadow: 0 0 30px rgba(0,0,0,0.5);
+            min-width: 350px;
+        }
+        button {
+            display: block;
+            width: 220px;
+            padding: 12px;
+            margin: 10px auto;
+            border-radius: 8px;
+            border: none;
+            background: #e3c16f;
+            color: #4a2e1a;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        button:hover { background: #fff; transform: scale(1.05); }
+        .hidden { display: none; }
+        
+        /* Color Grid */
+        .color-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .color-btn {
+            width: 100%;
+            height: 50px;
+            border-radius: 8px;
+            border: 3px solid transparent;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .color-btn:hover { transform: scale(1.1); border-color: white; }
+
+        #coin {
+            width: 80px; height: 80px;
+            background: gold; border-radius: 50%;
+            margin: 20px auto;
+            display: flex; justify-content: center; align-items: center;
+            font-size: 32px; font-weight: bold; color: #b8860b;
+            border: 4px solid #daa520;
+        }
+        .flipping { animation: spin 0.15s infinite linear; }
+        @keyframes spin {
+            from { transform: rotateY(0deg); }
+            to { transform: rotateY(180deg); }
+        }
+
+        #turn-indicator {
+            background: #222;
+            padding: 10px 30px;
+            border-radius: 20px;
+            margin-bottom: 10px;
+            border: 2px solid #e3c16f;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            transition: 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+        .turn-ai { animation: pulseGlow 1s infinite alternate; }
+
+        @keyframes pulseGlow {
+            from { box-shadow: 0 0 5px #2ecc71; }
+            to { box-shadow: 0 0 20px #2ecc71; }
+        }
+
+        #scoreboard {
+            display: flex; justify-content: space-around;
+            width: 640px; background: #222; padding: 15px;
+            border-radius: 10px 10px 0 0;
+            border: 2px solid #4a2e1a; box-sizing: border-box;
+        }
+        .player-info { text-align: center; flex: 1; padding-bottom: 5px; position: relative; border-radius: 8px; transition: 0.3s; }
+        .player-info.active { border-bottom: 4px solid #2ecc71; }
+        
+        .thinking-msg { 
+            position: absolute; bottom: -25px; width: 100%; font-size: 12px; 
+            display: none; color: #e3c16f; font-weight: bold;
+            animation: textPulse 1s infinite alternate;
+        }
+        @keyframes textPulse {
+            from { opacity: 0.4; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        .count { font-size: 28px; font-weight: bold; }
+        canvas { 
+            border: 10px solid #4a2e1a; 
+            background: #8b4513;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="menu-overlay">
+        <div class="menu-card">
+            <h1 style="color:#e3c16f">3D CHECKERS</h1>
+            
+            <div id="main-menu">
+                <button onclick="handleModeSelect('pvp')">Player vs Player</button>
+                <button onclick="showDifficulty()">Player vs AI</button>
+            </div>
+
+            <div id="difficulty-menu" class="hidden">
+                <p>Select AI Difficulty:</p>
+                <button onclick="handleModeSelect('ai', 2)">Easy</button>
+                <button onclick="handleModeSelect('ai', 4)">Hard</button>
+                <button onclick="handleModeSelect('ai', 6)">Very Hard</button>
+                <button style="background:none; color:white; font-size:12px;" onclick="hideDifficulty()">← Back</button>
+            </div>
+
+            <div id="color-menu" class="hidden">
+                <p id="color-prompt">Player 1: Choose Your Color</p>
+                <div class="color-grid">
+                    <div class="color-btn" style="background:#ff4d4d" onclick="selectColor('#ff4d4d', '#a71c1c', 'RED')"></div>
+                    <div class="color-btn" style="background:#4da6ff" onclick="selectColor('#4da6ff', '#0052a3', 'BLUE')"></div>
+                    <div class="color-btn" style="background:#2ecc71" onclick="selectColor('#2ecc71', '#1e8449', 'GREEN')"></div>
+                    <div class="color-btn" style="background:#f1c40f" onclick="selectColor('#f1c40f', '#9a7d0a', 'YELLOW')"></div>
+                    <div class="color-btn" style="background:#e056fd" onclick="selectColor('#e056fd', '#8e44ad', 'PINK') "></div>
+                    <div class="color-btn" style="background:#95a5a6" onclick="selectColor('#95a5a6', '#2c3e50', 'GRAY')"></div>
+                </div>
+            </div>
+
+            <div id="coin-screen" class="hidden">
+                <h3 id="toss-text">Flipping Coin...</h3>
+                <div id="coin">?</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="turn-indicator">
+        <span class="dot" id="turn-dot"></span>
+        <span id="turn-text">Waiting...</span>
+    </div>
+
+    <div id="scoreboard">
+        <div id="p1-info" class="player-info">
+            <div style="font-size:12px; opacity:0.7" id="p1-label">PLAYER 1</div>
+            <div class="count" id="p1-count">12</div>
+        </div>
+        <div id="p2-info" class="player-info">
+            <div style="font-size:12px; opacity:0.7" id="p2-label">PLAYER 2</div>
+            <div class="count" id="p2-count">12</div>
+            <div id="ai-thinking" class="thinking-msg">Thinking...</div>
+        </div>
+    </div>
+    <canvas id="checkersCanvas" width="640" height="640"></canvas>
+
+    <script>
+    const canvas = document.getElementById('checkersCanvas');
+    const ctx = canvas.getContext('2d');
+    let boardState, currentPlayer, selectedPiece, validMoves, gameMode, aiLevel;
+    
+    // Player Customization
+    let playerThemes = {
+        1: { main: '#ff4d4d', dark: '#a71c1c', name: 'RED' },
+        2: { main: '#666', dark: '#000', name: 'BLACK' }
+    };
+    let selectingFor = 1;
+
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    function playFlipSound() {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(400, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(800, audioCtx.currentTime + 0.1);
+        gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+    }
+
+    function showDifficulty() {
+        document.getElementById('main-menu').classList.add('hidden');
+        document.getElementById('difficulty-menu').classList.remove('hidden');
+    }
+    function hideDifficulty() {
+        document.getElementById('main-menu').classList.remove('hidden');
+        document.getElementById('difficulty-menu').classList.add('hidden');
+    }
+
+    function handleModeSelect(mode, level = 0) {
+        gameMode = mode;
+        aiLevel = level;
+        document.getElementById('main-menu').classList.add('hidden');
+        document.getElementById('difficulty-menu').classList.add('hidden');
+        document.getElementById('color-menu').classList.remove('hidden');
+    }
+
+    function selectColor(main, dark, name) {
+        playerThemes[selectingFor] = { main, dark, name };
+        
+        if (gameMode === 'ai' || selectingFor === 2) {
+            // If AI, auto-assign a contrasting color to AI if necessary, or just proceed
+            if(gameMode === 'ai') {
+                playerThemes[2] = (name === 'GRAY') ? 
+                    { main: '#ff4d4d', dark: '#a71c1c', name: 'RED' } : 
+                    { main: '#95a5a6', dark: '#2c3e50', name: 'GRAY' };
+            }
+            startCoinToss();
+        } else {
+            selectingFor = 2;
+            document.getElementById('color-prompt').innerText = "Player 2: Choose Your Color";
+        }
+    }
+
+    function startCoinToss() {
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        document.getElementById('color-menu').classList.add('hidden');
+        document.getElementById('coin-screen').classList.remove('hidden');
+        
+        const coin = document.getElementById('coin');
+        coin.classList.add('flipping');
+        const flipInterval = setInterval(playFlipSound, 150);
+
+        setTimeout(() => {
+            clearInterval(flipInterval);
+            const isHeads = Math.random() < 0.5;
+            coin.classList.remove('flipping');
+            coin.innerText = isHeads ? 'H' : 'T';
+            currentPlayer = isHeads ? 1 : 2;
+            document.getElementById('toss-text').innerText = isHeads ? 
+                `Heads! ${playerThemes[1].name} starts.` : 
+                `Tails! ${playerThemes[2].name} starts.`;
+            setTimeout(startGame, 1200);
+        }, 1000);
+    }
+
+    function startGame() {
+        boardState = [
+            [0, 2, 0, 2, 0, 2, 0, 2], [2, 0, 2, 0, 2, 0, 2, 0], [0, 2, 0, 2, 0, 2, 0, 2],
+            [0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0],
+            [1, 0, 1, 0, 1, 0, 1, 0], [0, 1, 0, 1, 0, 1, 0, 1], [1, 0, 1, 0, 1, 0, 1, 0]
+        ];
+        document.getElementById('menu-overlay').style.display = 'none';
+        document.getElementById('p1-label').innerText = playerThemes[1].name;
+        document.getElementById('p2-label').innerText = gameMode === 'ai' ? `AI (${playerThemes[2].name})` : playerThemes[2].name;
+        updateScoreboard(); renderGame();
+        if (gameMode === 'ai' && currentPlayer === 2) triggerAi();
+    }
+
+    // ... [getPieceMoves, getAllJumps, executeMove functions remain the same as your provided code] ...
+
+    function getPieceMoves(board, row, col, filterJumps = false) {
+        const moves = [];
+        const piece = board[row][col];
+        if (piece === 0) return [];
+        const isKing = piece % 1 !== 0;
+        const type = Math.floor(piece);
+        const dirs = [[-1,-1], [-1,1], [1,-1], [1,1]];
+
+        dirs.forEach(([dr, dc]) => {
+            if (isKing) {
+                let nr = row + dr, nc = col + dc, foundEnemy = false, opPos = null;
+                while (nr >= 0 && nr < 8 && nc >= 0 && nc < 8) {
+                    if (board[nr][nc] === 0) { 
+                        if (foundEnemy) moves.push({r: nr, c: nc, jump: opPos}); 
+                    } else if (Math.floor(board[nr][nc]) !== type) { 
+                        if (foundEnemy) break;
+                        foundEnemy = true; opPos = {r: nr, c: nc}; 
+                    } else break;
+                    nr += dr; nc += dc;
+                }
+            } else {
+                const mr = row + dr, mc = col + dc, er = row + dr*2, ec = col + dc*2;
+                if (er >= 0 && er < 8 && ec >= 0 && ec < 8) {
+                    if (board[mr][mc] !== 0 && Math.floor(board[mr][mc]) !== type && board[er][ec] === 0) {
+                        moves.push({r: er, c: ec, jump: {r: mr, c: mc}});
+                    }
+                }
+            }
+        });
+
+        if (moves.length === 0 && !filterJumps) {
+            dirs.forEach(([dr, dc]) => {
+                if (!isKing && ((type === 1 && dr === 1) || (type === 2 && dr === -1))) return;
+                let nr = row + dr, nc = col + dc;
+                if (nr >= 0 && nr < 8 && nc >= 0 && nc < 8 && board[nr][nc] === 0) {
+                    moves.push({r: nr, c: nc, jump: null});
+                    if(isKing) { // Basic sliding for kings
+                        nr += dr; nc += dc;
+                        while(nr >= 0 && nr < 8 && nc >= 0 && nc < 8 && board[nr][nc] === 0) {
+                            moves.push({r: nr, c: nc, jump: null});
+                            nr += dr; nc += dc;
+                        }
+                    }
+                }
+            });
+        }
+        return moves;
+    }
+
+    function getAllJumps(board, player) {
+        let jumps = [];
+        for(let r=0; r<8; r++) for(let c=0; c<8; c++) {
+            if(Math.floor(board[r][c]) === player) {
+                const ms = getPieceMoves(board, r, c, true);
+                if(ms.length > 0) jumps.push({from: {r,c}, ms});
+            }
+        }
+        return jumps;
+    }
+
+    function executeMove(board, from, to) {
+        let p = board[from.r][from.c];
+        board[from.r][from.c] = 0;
+        if (to.jump) board[to.jump.r][to.jump.c] = 0;
+        if (Math.floor(p) === 1 && to.r === 0) p = 1.1;
+        if (Math.floor(p) === 2 && to.r === 7) p = 2.1;
+        board[to.r][to.c] = p;
+    }
+
+    canvas.onmousedown = (e) => {
+        if (gameMode === 'ai' && currentPlayer === 2) return;
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+        const c = Math.floor(((e.clientX - rect.left) * scaleX) / 80);
+        const r = Math.floor(((e.clientY - rect.top) * scaleY) / 80);
+        
+        const move = (validMoves || []).find(m => m.r === r && m.c === c);
+        if (move && selectedPiece) {
+            executeMove(boardState, selectedPiece, move);
+            if (move.jump && getPieceMoves(boardState, r, c, true).length > 0) {
+                selectedPiece = {r, c}; 
+                validMoves = getPieceMoves(boardState, r, c, true);
+                renderGame(); 
+                return;
+            }
+            endTurn();
+        } else if (boardState && Math.floor(boardState[r][c]) === currentPlayer) {
+            const jumps = getAllJumps(boardState, currentPlayer);
+            if (jumps.length > 0) {
+                const can = jumps.find(j => j.from.r === r && j.from.c === c);
+                if (can) { selectedPiece = {r, c}; validMoves = can.ms; }
+            } else {
+                selectedPiece = {r, c}; validMoves = getPieceMoves(boardState, r, c);
+            }
+            renderGame();
+        }
+    };
+
+    function endTurn() {
+        currentPlayer = currentPlayer === 1 ? 2 : 1;
+        selectedPiece = null; validMoves = [];
+        updateScoreboard(); renderGame();
+        if (gameMode === 'ai' && currentPlayer === 2) triggerAi();
+    }
+
+    function updateScoreboard() {
+        const counts = {1:0, 2:0};
+        boardState.flat().forEach(p => { if(p!==0) counts[Math.floor(p)]++ });
+        document.getElementById('p1-count').innerText = counts[1];
+        document.getElementById('p2-count').innerText = counts[2];
+        
+        const indicator = document.getElementById('turn-indicator');
+        const turnText = document.getElementById('turn-text');
+        const turnDot = document.getElementById('turn-dot');
+        
+        indicator.style.borderColor = playerThemes[currentPlayer].main;
+        turnDot.style.background = playerThemes[currentPlayer].main;
+        
+        if (gameMode === 'ai' && currentPlayer === 2) {
+            indicator.className = 'turn-ai';
+            turnText.innerText = "AI Thinking...";
+        } else {
+            indicator.className = '';
+            turnText.innerText = `${playerThemes[currentPlayer].name}'S TURN`;
+        }
+
+        document.getElementById('p1-info').classList.toggle('active', currentPlayer === 1);
+        document.getElementById('p2-info').classList.toggle('active', currentPlayer === 2);
+        
+        if (counts[1] === 0) { alert(`${playerThemes[2].name} WINS!`); location.reload(); }
+        if (counts[2] === 0) { alert(`${playerThemes[1].name} WINS!`); location.reload(); }
+    }
+
+    function renderGame() {
+        ctx.clearRect(0,0,640,640);
+        for(let r=0; r<8; r++) for(let c=0; c<8; c++) {
+            ctx.fillStyle = (r+c)%2===0 ? '#e3c16f' : '#8b4513';
+            ctx.fillRect(c*80, r*80, 80, 80);
+            
+            if (selectedPiece?.r === r && selectedPiece?.c === c) {
+                ctx.strokeStyle = "white"; ctx.lineWidth = 4; ctx.strokeRect(c*80+5, r*80+5, 70, 70);
+            }
+            
+            if (validMoves?.some(m => m.r === r && m.c === c)) {
+                ctx.fillStyle = 'rgba(46, 204, 113, 0.7)';
+                ctx.beginPath(); ctx.arc(c*80+40, r*80+40, 12, 0, Math.PI*2); ctx.fill();
+            }
+
+            const p = boardState[r][c];
+            if (p !== 0) {
+                const type = Math.floor(p);
+                const theme = playerThemes[type];
+                const grad = ctx.createRadialGradient(c*80+30, r*80+30, 5, c*80+40, r*80+40, 30);
+                grad.addColorStop(0, theme.main);
+                grad.addColorStop(1, theme.dark);
+                
+                ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(c*80+40, r*80+40, 30, 0, Math.PI*2); ctx.fill();
+                if (p % 1 !== 0) { 
+                    ctx.fillStyle = "gold"; ctx.font = "bold 24px serif"; ctx.textAlign = "center"; 
+                    ctx.fillText("K", c*80+40, r*80+48); 
+                }
+            }
+        }
+    }
+
+    function triggerAi() {
+        const thinkingText = document.getElementById('ai-thinking');
+        thinkingText.style.display = 'block';
+
+        setTimeout(() => {
+            const bestMove = getBestMove(boardState, aiLevel);
+            if (bestMove) {
+                executeMove(boardState, bestMove.from, bestMove.to);
+                if (bestMove.to.jump && getPieceMoves(boardState, bestMove.to.r, bestMove.to.c, true).length > 0) {
+                    renderGame(); 
+                    setTimeout(triggerAi, 800); 
+                    return; 
+                }
+            }
+            thinkingText.style.display = 'none';
+            endTurn();
+        }, 1500 + Math.random() * 1000); 
+    }
+
+    function getBestMove(board, depth) {
+        let moves = [];
+        const jumps = getAllJumps(board, 2);
+        if (jumps.length > 0) { jumps.forEach(j => j.ms.forEach(m => moves.push({from: j.from, to: m}))); }
+        else {
+            for(let r=0; r<8; r++) for(let c=0; c<8; c++) {
+                if(Math.floor(board[r][c]) === 2) getPieceMoves(board, r, c).forEach(m => moves.push({from: {r,c}, to: m}));
+            }
+        }
+        if (moves.length === 0) return null;
+        return moves[Math.floor(Math.random() * moves.length)]; // Simplified AI for this snippet
+    }
+ </script>
+</body>
+</html>
