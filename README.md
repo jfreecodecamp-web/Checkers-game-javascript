@@ -4,7 +4,7 @@
 
 A browser-based Checkers prototype built with vanilla JavaScript and HTML5 Canvas. Play a local two-player match or practice against a computer opponent with selectable piece colours and highlighted legal moves.
 
-[Browse source](https://github.com/jfreecodecamp-web/Checkers-game-javascript/blob/main/index.html) · [Developer profile](https://github.com/jfreecodecamp-web)
+[Play live demo](https://jfreecodecamp-web.github.io/Checkers-game-javascript/) · [Browse source](https://github.com/jfreecodecamp-web/Checkers-game-javascript/blob/main/index.html) · [Developer profile](https://github.com/jfreecodecamp-web)
 
 ## Preview
 
